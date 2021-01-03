@@ -19,10 +19,14 @@ public class PlayerController : MonoBehaviour
     private float jumpForce;
 
     //상태 변수
+    private bool isWalk = false;
     private bool isRun = false;
     private bool isCrouch = false;
     private bool isGround = true;
 
+    //움직임 체크 변수
+    private Vector3 lastPos;
+    
     //앉았을 때 얼마나 앉을지 결정하는 변수
     [SerializeField]
     private float crouchPosY;
@@ -44,13 +48,15 @@ public class PlayerController : MonoBehaviour
     private Camera theCamera;
     private Rigidbody myRigid;
     private GunController theGunController;
+    private CrossHair theCrossHair;
     void Start()
     {
         capsuleCollider = GetComponent<CapsuleCollider>();
         myRigid = GetComponent<Rigidbody>();
-        applySpeed = walkSpeed;
         theGunController = FindObjectOfType<GunController>();
+        theCrossHair = FindObjectOfType<CrossHair>();
         //초기화
+        applySpeed = walkSpeed;
         originPosY = theCamera.transform.localPosition.y;
         applyCrouchPosY = originPosY;
     }
@@ -63,6 +69,7 @@ public class PlayerController : MonoBehaviour
         TryRun();
         TryCrouch();
         Move();
+        MoveCheck();
         CameraRotation();
         CharacterRotation();
     }
@@ -78,7 +85,9 @@ public class PlayerController : MonoBehaviour
     private void Crouch()
     {
         isCrouch = !isCrouch;
-        if(isCrouch)
+        theCrossHair.CrouchingAnimation(isCrouch);
+        
+        if (isCrouch)
         {
             applySpeed = crouchSpeed;
             applyCrouchPosY = crouchPosY;
@@ -115,6 +124,7 @@ public class PlayerController : MonoBehaviour
     private void IsGround()
     {
         isGround = Physics.Raycast(transform.position, Vector3.down, capsuleCollider.bounds.extents.y + 0.1f);
+        theCrossHair.RunningAnimation(!isGround);
     }
     //점프 시도
     private void TryJump()
@@ -151,12 +161,14 @@ public class PlayerController : MonoBehaviour
             Crouch();
         theGunController.CancelFineSight();
         isRun = true;
+        theCrossHair.RunningAnimation(isRun);
         applySpeed = runSpeed;
     }
     //달리기 취소
     private void RunningCancel()
     {
         isRun = false;
+        theCrossHair.RunningAnimation(isRun);
         applySpeed = walkSpeed;
     }
     //이동
@@ -173,6 +185,24 @@ public class PlayerController : MonoBehaviour
         Vector3 _velocity = (_moveHorizontal + _moveVertical).normalized * applySpeed;
 
         myRigid.MovePosition(transform.position + _velocity * Time.deltaTime);
+       
+    }
+
+    private void MoveCheck()
+    {
+        if (!isRun && isGround)
+        {
+            if (Vector3.Distance(lastPos, transform.position) >= 0.01)
+                isWalk = true;
+            else
+                isWalk = false;
+
+            theCrossHair.WalkingAnimation(isWalk);
+            lastPos = transform.position;
+        }
+        
+        theCrossHair.WalkingCrouchingAnimation(isWalk && isCrouch);
+        
     }
     //좌우 캐릭터 회전
     private void CharacterRotation()
